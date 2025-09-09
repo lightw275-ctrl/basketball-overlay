@@ -93,23 +93,38 @@
 </div>
 
 <script>
-const bcChannel = ('BroadcastChannel' in window) ? new BroadcastChannel('basket-counter-channel') : null;
-
+// -------------------- State and Mode --------------------
 let state = { hits:0, misses:0, points:0 };
 let mode = 'challenge';
-
 const hitsEl = document.getElementById('hitsBig');
 const missesEl = document.getElementById('missBig');
 const pointsEl = document.getElementById('pointsBig');
 
-function sendState(){ if(bcChannel) bcChannel.postMessage({type:'state', state}); }
-function updateUI(){
-  hitsEl.textContent = state.hits;
-  missesEl.textContent = state.misses;
-  pointsEl.textContent = state.points;
+// -------------------- BroadcastChannel --------------------
+let bcChannel = null;
+if('BroadcastChannel' in window && !location.search.includes('obs=1')){
+    bcChannel = new BroadcastChannel('basket-counter-channel');
+    bcChannel.onmessage = ev => { if(ev.data?.type==='state'){ state = ev.data.state; updateUI(); } };
 }
 
-// Mode selection
+function sendState(){
+    if(bcChannel){ bcChannel.postMessage({type:'state', state}); }
+    else { localStorage.setItem('basket-counter-state', JSON.stringify(state)); }
+}
+
+function loadState(){
+    const s = localStorage.getItem('basket-counter-state');
+    if(s){ state = JSON.parse(s); updateUI(); }
+}
+
+// -------------------- UI Update --------------------
+function updateUI(){
+    hitsEl.textContent = state.hits;
+    missesEl.textContent = state.misses;
+    pointsEl.textContent = state.points;
+}
+
+// -------------------- Mode Selection --------------------
 const modeSelect = document.getElementById('modeSelect');
 modeSelect.addEventListener('change', ()=>{
   mode = modeSelect.value;
@@ -117,7 +132,7 @@ modeSelect.addEventListener('change', ()=>{
   document.getElementById('normalControls').style.display = (mode==='normal')?'grid':'none';
 });
 
-// Buttons
+// -------------------- Button Handlers --------------------
 document.getElementById('hitBtn').onclick = ()=>{ state.hits++; updateUI(); sendState(); };
 document.getElementById('hitDec').onclick = ()=>{ if(state.hits>0) state.hits--; updateUI(); sendState(); };
 document.getElementById('missBtn').onclick = ()=>{ state.misses++; updateUI(); sendState(); };
@@ -126,7 +141,7 @@ document.getElementById('pointBtn').onclick = ()=>{ state.points++; updateUI(); 
 document.getElementById('pointDec').onclick = ()=>{ if(state.points>0) state.points--; updateUI(); sendState(); };
 document.getElementById('resetBtn').onclick = ()=>{ state={hits:0,misses:0,points:0}; updateUI(); sendState(); };
 
-// Keyboard shortcuts
+// -------------------- Keyboard Shortcuts --------------------
 window.addEventListener('keydown', e=>{
   if(mode==='challenge'){
     if(e.key==='h'||e.key==='H'){ state.hits++; updateUI(); sendState(); }
@@ -138,12 +153,14 @@ window.addEventListener('keydown', e=>{
   }
 });
 
-// Receive updates
-if(bcChannel){
-  bcChannel.onmessage = ev=>{
-    if(ev.data?.type==='state'){ state = ev.data.state; updateUI(); }
-  };
+// -------------------- OBS Polling Fallback --------------------
+function obsFallbackLoop(){
+    if(location.search.includes('obs=1')){
+        loadState();
+        setTimeout(obsFallbackLoop, 200); // update every 200ms
+    }
 }
+obsFallbackLoop();
 
 updateUI();
 </script>
