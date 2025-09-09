@@ -1,240 +1,151 @@
-<!--
-Basketball Counter Overlay (single-file HTML)
-
-How to use:
-1) Host this file as a public URL (GitHub Pages, Netlify, Vercel, etc.).
-   - Example: https://yourname.github.io/basket-counter/index.html
-2) Use the overlay in IRL Toolkit OBS (or any OBS) as a Browser Source pointing to:
-   - Overlay URL: https://yourhost/.../index.html?mode=overlay
-   - Control URL: https://yourhost/.../index.html?mode=control
-
-Notes:
-- The overlay and control pages must be served from the SAME ORIGIN/domain so they can sync using BroadcastChannel.
-  If you host both from the same URL above (same site), it will work fine.
-- Replace the background image path in CSS (--overlay-bg) with your Photoshop PNG (transparent areas allowed).
-- Browser Source settings in OBS: set width/height (e.g. 1920x1080), enable "Shutdown source when not visible" if desired, and set "Custom CSS" transparency allowed.
-
-Features:
-- Two views: overlay (big styled counters) and control (buttons + keyboard shortcuts).
-- Real-time sync between control and overlay via BroadcastChannel.
-- Keyboard shortcuts on control page: H = hit, M = miss, R = reset.
-- Optional local-only fallback if BroadcastChannel is not available (the control page will show manual copyable JSON state).
-
-Customize:
-- Edit CSS variables at the top of the <style> block to change fonts, colors, sizes, and positioning.
-- Replace --overlay-bg with your exported PNG path.
-
-Ready-to-deploy single HTML file starts below.
--->
-
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lights Basketball Counter Control Panel</title>
 <style>
-  :root{
-    --width: 1920px;             /* design width */
-    --height: 1080px;           /* design height */
-
-    /* Replace this with your PNG path (relative or absolute URL) */
-    --overlay-bg: url('nba_overlay.png');
-
-    /* Typography */
-    --font-family: 'Bebas Neue', Impact, system-ui, Arial;
-    --hits-color: #00ff66;
-    --misses-color: #ff3b30;
-    --label-color: #ffffffcc;
-
-    /* Size/responsive */
-    --counter-size: 120px;      /* main number size */
-    --label-size: 28px;         /* small label text */
-
-    /* Positioning for bottom center bar (adjust if your PNG different) */
-    --bar-bottom: 40px;         /* distance from bottom */
-    --bar-height: 140px;
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #0b0b0b;
+    font-family: system-ui, sans-serif;
+    color: white;
   }
+  h1 { text-align: center; margin-top: 16px; }
 
-  html,body{height:100%;margin:0;background:transparent}
-  .stage{
-    width:100%;height:100%;position:relative;overflow:hidden;
-    display:flex;align-items:flex-end;justify-content:center;
-    font-family:var(--font-family);
+  .controls {
+    max-width: 720px;
+    margin: 20px auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
   }
-
-  /* background overlay image */
-  .bg{
-    position:absolute;inset:0;background-image:var(--overlay-bg);background-repeat:no-repeat;background-position:center bottom;background-size:contain;pointer-events:none;
+  .control-box {
+    background: #111;
+    padding: 16px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
-
-  /* container for counters placed above background */
-  .counter-bar{
-    position:relative;width:90%;max-width:1300px;height:var(--bar-height);margin-bottom:var(--bar-bottom);
-    display:flex;align-items:center;justify-content:space-between;gap:24px;pointer-events:none;
+  .big-num {
+    font-size: 96px;
+    font-weight: bold;
+    margin-bottom: 12px;
   }
-
-  .box{
-    pointer-events:none; /* overlay isn't interactive */
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    width:360px;height:100%;background:transparent;border-radius:14px;
-    backdrop-filter: blur(0px);
+  .btn {
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: #0a84ff;
+    color: white;
+    cursor: pointer;
+    margin: 4px;
+    text-align: center;
   }
-
-  .label{font-size:var(--label-size);color:var(--label-color);letter-spacing:1px}
-  .number{font-size:var(--counter-size);font-weight:700;line-height:1;color:var(--hits-color);text-shadow:0 4px 12px rgba(0,0,0,0.6)}
-  .miss .number{color:var(--misses-color)}
-
-  /* small watermark for debug when not in overlay mode */
-  .debug{position:fixed;left:8px;top:8px;background:#0006;padding:6px 8px;border-radius:6px;color:#fff;font-size:12px}
-
-  /* CONTROL UI styles */
-  .control-wrap{padding:18px;font-family:system-ui,Segoe UI,Roboto,Arial;background:#0b0b0b;color:#fff;min-height:100vh}
-  .controls{max-width:680px;margin:30px auto;display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .control-box{background:#111;padding:18px;border-radius:10px}
-  .big-num{font-size:88px;font-weight:800;text-align:center;margin-bottom:8px}
-  .btn{display:inline-block;background:#0a84ff;padding:10px 14px;border-radius:8px;cursor:pointer;color:white;text-align:center;margin:4px}
-  .btn.secondary{background:#333}
-  .kbd{font-weight:700;background:#00000066;padding:6px 8px;border-radius:6px}
-
-  /* responsive tweaks */
-  @media (max-width:900px){:root{--counter-size:72px;--bar-height:110px}}
+  .btn.secondary { background: #333; }
+  .kbd { font-weight: bold; background: #00000066; padding: 6px 8px; border-radius: 6px; }
+  .mode-select { text-align:center; margin-bottom:12px; }
 </style>
 </head>
 <body>
+<h1>Lights Basketball Counter Control Panel</h1>
+<div class="mode-select">
+  <label>Mode: </label>
+  <select id="modeSelect">
+    <option value="challenge">Challenge (Hits/Misses)</option>
+    <option value="normal">Normal (Points)</option>
+  </select>
+</div>
 
-<div id="app"></div>
+<div class="controls" id="challengeControls">
+  <div class="control-box">
+    <div class="big-num" id="hitsBig">0</div>
+    <div>Hits</div>
+    <div>
+      <div class="btn" id="hitBtn">+1 Hit</div>
+      <div class="btn secondary" id="hitDec">-1 Hit</div>
+    </div>
+  </div>
+  <div class="control-box">
+    <div class="big-num" id="missBig">0</div>
+    <div>Misses</div>
+    <div>
+      <div class="btn" id="missBtn">+1 Miss</div>
+      <div class="btn secondary" id="missDec">-1 Miss</div>
+    </div>
+  </div>
+</div>
+
+<div class="controls" id="normalControls" style="display:none;">
+  <div class="control-box" style="width:100%;">
+    <div class="big-num" id="pointsBig">0</div>
+    <div>Points</div>
+    <div>
+      <div class="btn" id="pointBtn">+1 Point</div>
+      <div class="btn secondary" id="pointDec">-1 Point</div>
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center; margin-top:20px;">
+  <div class="btn" id="resetBtn">Reset All</div>
+</div>
 
 <script>
-// Single-file overlay + control with BroadcastChannel sync
-(function(){
-  const params = new URLSearchParams(location.search);
-  const mode = params.get('mode') || params.get('view') || 'overlay';
-  const channelName = 'basket-counter-channel';
+const bcChannel = ('BroadcastChannel' in window) ? new BroadcastChannel('basket-counter-channel') : null;
 
-  // shared state
-  let state = {hits:0, misses:0};
+let state = { hits:0, misses:0, points:0 };
+let mode = 'challenge';
 
-  // BroadcastChannel if available
-  let bc = null;
-  if ('BroadcastChannel' in window){
-    try{ bc = new BroadcastChannel(channelName); }
-    catch(e){ bc = null; }
+const hitsEl = document.getElementById('hitsBig');
+const missesEl = document.getElementById('missBig');
+const pointsEl = document.getElementById('pointsBig');
+
+function sendState(){ if(bcChannel) bcChannel.postMessage({type:'state', state}); }
+function updateUI(){
+  hitsEl.textContent = state.hits;
+  missesEl.textContent = state.misses;
+  pointsEl.textContent = state.points;
+}
+
+// Mode selection
+const modeSelect = document.getElementById('modeSelect');
+modeSelect.addEventListener('change', ()=>{
+  mode = modeSelect.value;
+  document.getElementById('challengeControls').style.display = (mode==='challenge')?'grid':'none';
+  document.getElementById('normalControls').style.display = (mode==='normal')?'grid':'none';
+});
+
+// Buttons
+document.getElementById('hitBtn').onclick = ()=>{ state.hits++; updateUI(); sendState(); };
+document.getElementById('hitDec').onclick = ()=>{ if(state.hits>0) state.hits--; updateUI(); sendState(); };
+document.getElementById('missBtn').onclick = ()=>{ state.misses++; updateUI(); sendState(); };
+document.getElementById('missDec').onclick = ()=>{ if(state.misses>0) state.misses--; updateUI(); sendState(); };
+document.getElementById('pointBtn').onclick = ()=>{ state.points++; updateUI(); sendState(); };
+document.getElementById('pointDec').onclick = ()=>{ if(state.points>0) state.points--; updateUI(); sendState(); };
+document.getElementById('resetBtn').onclick = ()=>{ state={hits:0,misses:0,points:0}; updateUI(); sendState(); };
+
+// Keyboard shortcuts
+window.addEventListener('keydown', e=>{
+  if(mode==='challenge'){
+    if(e.key==='h'||e.key==='H'){ state.hits++; updateUI(); sendState(); }
+    if(e.key==='m'||e.key==='M'){ state.misses++; updateUI(); sendState(); }
+    if(e.key==='r'||e.key==='R'){ state.hits=0; state.misses=0; updateUI(); sendState(); }
+  } else {
+    if(e.key==='p'||e.key==='P'){ state.points++; updateUI(); sendState(); }
+    if(e.key==='r'||e.key==='R'){ state.points=0; updateUI(); sendState(); }
   }
+});
 
-  function sendState(){
-    if (bc) bc.postMessage({type:'state',state});
-    // also update URL hash for easy copy/paste fallback
-    history.replaceState(null,'',location.pathname + '?mode='+mode + '#'+encodeURIComponent(JSON.stringify(state)));
-  }
+// Receive updates
+if(bcChannel){
+  bcChannel.onmessage = ev=>{
+    if(ev.data?.type==='state'){ state = ev.data.state; updateUI(); }
+  };
+}
 
-  function applyState(newState){
-    state = Object.assign({},state,newState);
-    updateUI();
-  }
-
-  if (bc){
-    bc.onmessage = (ev)=>{
-      const d = ev.data;
-      if (!d) return;
-      if (d.type === 'state' && d.state){ applyState(d.state); }
-    }
-  }
-
-  // try initial state from hash (fallback)
-  try{
-    if (location.hash && location.hash.length>1){
-      const decoded = decodeURIComponent(location.hash.slice(1));
-      const parsed = JSON.parse(decoded);
-      if (parsed && typeof parsed.hits === 'number') state = parsed;
-    }
-  } catch(e){}
-
-  // ------- Overlay view -------
-  if (mode === 'overlay'){
-    document.title = 'Basket Counter (overlay)';
-    const root = document.getElementById('app');
-    root.innerHTML = `
-      <div class="stage">
-        <div class="bg" aria-hidden="true"></div>
-        <div class="counter-bar" id="counterBar">
-          <div class="box hit">
-            <div class="label">HITS</div>
-            <div class="number" id="hitsNum">0</div>
-          </div>
-          <div class="box miss">
-            <div class="label">MISSES</div>
-            <div class="number" id="missesNum">0</div>
-          </div>
-        </div>
-      </div>
-      <div class="debug">Overlay mode • BroadcastChannel: ${bc? 'YES':'NO'}</div>
-    `;
-
-    function updateUI(){
-      const hitsEl = document.getElementById('hitsNum');
-      const missEl = document.getElementById('missesNum');
-      if (hitsEl) hitsEl.textContent = state.hits;
-      if (missEl) missEl.textContent = state.misses;
-    }
-
-    // animate small pop when changed
-    let lastH = state.hits, lastM = state.misses;
-    const obs = new MutationObserver(()=>{
-      if (state.hits !== lastH){
-        popAnimate(document.getElementById('hitsNum'));
-        lastH = state.hits;
-      }
-      if (state.misses !== lastM){
-        popAnimate(document.getElementById('missesNum'));
-        lastM = state.misses;
-      }
-    });
-
-    updateUI();
-    // observe attribute changes on numbers
-    const hitsNode = document.getElementById('hitsNum');
-    if (hitsNode) obs.observe(hitsNode,{childList:true,subtree:true});
-
-    window.updateUI = updateUI;
-    return; // overlay done
-  }
-
-  // ------- Control view -------
-  document.title = 'Lights Basketball Counter Control Panel';
-  const root = document.getElementById('app');
-  root.innerHTML = `
-    <div class="control-wrap">
-      <h1>Lights Basketball Counter Control Panel</h1>
-      <p>Shortcuts: <span class="kbd">H</span> = Hit, <span class="kbd">M</span> = Miss, <span class="kbd">R</span> = Reset</p>
-      <div class="controls">
-        <div class="control-box">
-          <div class="big-num" id="hitsBig">0</div>
-          <div style="text-align:center">
-            <button class="btn" id="hitBtn">+1 Hit</button>
-            <button class="btn secondary" id="hitDec">-1</button>
-          </div>
-        </div>
-        <div class="control-box">
-          <div class="big-num" id="missBig">0</div>
-          <div style="text-align:center">
-            <button class="btn" id="missBtn">+1 Miss</button>
-            <button class="btn secondary" id="missDec">-1</button>
-          </div>
-        </div>
-      </div>
-
-      <div style="max-width:680px;margin:14px auto;display:flex;gap:8px;align-items:center;justify-content:center">
-        <button class="btn" id="resetBtn">Reset</button>
-        <button class="btn secondary" id="exportBtn">Copy state JSON</button>
-        <button class="btn secondary" id="importBtn">Import JSON</button>
-      </div>
-
-      <p style="opacity:0.8;max-width:760px;margin:14px auto">Open the overlay in OBS as a Browser Source with: <code>?mode=overlay</code><br>Open this control panel in any browser (same origin) with: <code>?mode=control</code></p>
-
-      <pre id="stateDump" style="display:none;background:#000;padding:10px;border-radius:8px;overflow:auto;color:#0f0"></pre>
-    </div>
-  `;
-
-  function updateUI(){
-    document.getElementById('hitsBig
+updateUI();
+</script>
+</body>
+</html>
