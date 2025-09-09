@@ -32,7 +32,7 @@ Ready-to-deploy single HTML file starts below.
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Basketball Counter Overlay</title>
+<title>Lights Basketball Counter Control Panel</title>
 <style>
   :root{
     --width: 1920px;             /* design width */
@@ -201,11 +201,11 @@ Ready-to-deploy single HTML file starts below.
   }
 
   // ------- Control view -------
-  document.title = 'Basket Counter (control)';
+  document.title = 'Lights Basketball Counter Control Panel';
   const root = document.getElementById('app');
   root.innerHTML = `
     <div class="control-wrap">
-      <h1>Basket Counter — Control Panel</h1>
+      <h1>Lights Basketball Counter Control Panel</h1>
       <p>Shortcuts: <span class="kbd">H</span> = Hit, <span class="kbd">M</span> = Miss, <span class="kbd">R</span> = Reset</p>
       <div class="controls">
         <div class="control-box">
@@ -237,53 +237,4 @@ Ready-to-deploy single HTML file starts below.
   `;
 
   function updateUI(){
-    document.getElementById('hitsBig').textContent = state.hits;
-    document.getElementById('missBig').textContent = state.misses;
-  }
-
-  function broadcast(){ sendState(); }
-
-  // button handlers
-  document.getElementById('hitBtn').addEventListener('click', ()=>{ state.hits++; updateUI(); broadcast(); });
-  document.getElementById('missBtn').addEventListener('click', ()=>{ state.misses++; updateUI(); broadcast(); });
-  document.getElementById('hitDec').addEventListener('click', ()=>{ if(state.hits>0) state.hits--; updateUI(); broadcast(); });
-  document.getElementById('missDec').addEventListener('click', ()=>{ if(state.misses>0) state.misses--; updateUI(); broadcast(); });
-  document.getElementById('resetBtn').addEventListener('click', ()=>{ state.hits=0; state.misses=0; updateUI(); broadcast(); });
-
-  document.getElementById('exportBtn').addEventListener('click', ()=>{
-    const dump = JSON.stringify(state);
-    navigator.clipboard.writeText(dump).then(()=>{ alert('State copied to clipboard'); });
-  });
-  document.getElementById('importBtn').addEventListener('click', ()=>{
-    const input = prompt('Paste state JSON (e.g. {"hits":12,"misses":3})');
-    try{ const parsed = JSON.parse(input); if (typeof parsed.hits==='number') { state = parsed; updateUI(); broadcast(); } else alert('Invalid JSON'); }
-    catch(e){ alert('Invalid JSON'); }
-  });
-
-  // keyboard shortcuts
-  window.addEventListener('keydown',(e)=>{
-    if (e.key === 'h' || e.key === 'H'){ state.hits++; updateUI(); broadcast(); }
-    if (e.key === 'm' || e.key === 'M'){ state.misses++; updateUI(); broadcast(); }
-    if (e.key === 'r' || e.key === 'R'){ state.hits=0; state.misses=0; updateUI(); broadcast(); }
-  });
-
-  // initial UI update
-  updateUI();
-  // expose for debug
-  window.bc = bc; window.state = state;
-
-})();
-
-// small pop animation function used in overlay mode
-function popAnimate(el){
-  if (!el) return;
-  el.animate([
-    { transform: 'scale(1)', opacity:1 },
-    { transform: 'scale(1.18)', opacity:1 },
-    { transform: 'scale(1)', opacity:1 }
-  ],{duration:280,easing:'cubic-bezier(.2,.9,.2,1)'});
-}
-</script>
-
-</body>
-</html>
+    document.getElementById('hitsBig
